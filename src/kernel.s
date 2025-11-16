@@ -1,6 +1,6 @@
 org 0x200
 VGATmem equ 0xb800 ; VGA text mode buffer start
-screendim equ 77fh ; 24*80-1
+screendim equ 77fh ; 24*80-1, starting from the VGATmem
 
 xor ax, ax
 xor di, di
@@ -15,35 +15,41 @@ mov sp, ax
 mov bp, sp
 xor ax, ax
 
-main:
-	
-	 ; mov si, teststr
-	 ; mov ah, 47h
-	 ; mov bx, 3h
-	 ; call write_line
+jmp main
 
-	 ; mov al, 40h ; @
-	 ; mov ah, 1ch
-	 ; mov bx, 0002h
-	 ; call write_char
+; Data goes here
 
-	mov al, 20h ; ' '
-	mov ah, 07h
-	call fill_screen
-
-	mov dh, 00h
-	mov dl, 00h
-	call set_cursor
-
-	jmp force_shutdown
+welcome db "Welcome to 2Sos!", 0
 
 
 
 jmp main
 
+main:
 
-; Expects si(strZ address), bx(offset from top left), ah(bg|fg)
-; Offset shouldn't be a power of two
+	mov al, 20h ; ' '
+	mov ah, 07h
+	call fill_screen
+
+	mov si, welcome
+	mov ah, 07h
+	mov bx, 0h
+	call write_line
+
+	mov dh, 00h
+	mov dl, 10h
+	call set_cursor
+
+	jmp force_shutdown
+
+jmp main
+
+
+
+;	SI (Zero terminated string),
+;	BX (Offset from top left)
+;	AH (BG|FG)
+; The offset shouldn't be a power of two, it is accounted for :)
 write_line:
 	push ax
 	push bx
@@ -69,7 +75,8 @@ write_line:
 ret
 
 
-; Expects ax([bg|fg],[char])
+;	AX ( [(BG|FG)] [Char] )
+; Where ( [AH] [AL] )
 fill_screen:
 	push bx
 	push cx
@@ -93,8 +100,10 @@ fill_screen:
 ret
 
 
-; Expects ah(bg|fg) al(char), bx(offset from top left)
-; The offset should not be a power of two, we account for that :)
+;	AX ( [(BG|FG)] [Char] )
+; Where ( [AH] [AL] )
+;	BX (Offset from top left)
+; The offset shouldn't be a power of two, it is accounted for :)
 write_char:
 	push bx
 
@@ -107,7 +116,8 @@ write_char:
 ret
 
 
-; Expects: dh(row) dl(col) (starting top left)
+;	DH (row)
+;	DL (col)
 set_cursor:
 	push ax
 	push bx
@@ -131,35 +141,33 @@ ret
 
 
 jmp main
-
-teststr db "Teststr", 0
-
 force_shutdown:
-	; int 15, ax 5307h (apm state)
-	; bx (Device ID) cx (System State ID)
+	; int 15, AX 5307h (APM state)
+	; BX (Device ID), CX (System State ID)
 
 	mov ax, 5307h
 	mov bx, 0001h ; All
 	mov cx, 0003h ; Off
 	int 15
 
+
 	; Support for APM 1.0, where SysID OFF not supporting DevID ALL
 
-	; Re-set ah since the err code is written there, al and cx shouldn't be modified
+	; Re-set AH since the error code is written there, AL and CX shouldn't be modified
 	mov ah, 53h;
-	mov bx, 02ffh ; storage (all secondary)
+	mov bx, 02ffh ; Storage (all secondary)
 	int 15
 
 	mov ah, 53h
-	mov bx, 01ffh ; display (all)
+	mov bx, 01ffh ; Display (all)
 	int 15
 
 	mov ah, 53h
-	mov bx, 04ffh ; serial ports (all)
+	mov bx, 04ffh ; Serial ports (all)
 	int 15
 
 	mov ah, 53h
-	mov bx, 03ffh ; parallel ports (all)
+	mov bx, 03ffh ; Parallel ports (all)
 	int 15
 
 	cli

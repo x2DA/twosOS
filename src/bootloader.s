@@ -26,6 +26,6 @@ main:
 	int 0x13
 	jmp bx ; Off to the kernel :D
 
-times 510 - ($-$$) db 0 ; Pad rest of sector with 0's
+times 510 - ($-$$) db 0 ; Pad rest of sector
 dw 0xaa55
 
