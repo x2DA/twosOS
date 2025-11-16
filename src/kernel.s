@@ -22,7 +22,7 @@ jmp main
 
 ; Data goes here
 
-welcome db "Welcome to 2Sos!", 0
+welcome db "Welcome!", 0
 cxtitle db "cx=", 0
 
 
@@ -43,10 +43,11 @@ main:
 	mov bx, 0h
 	call write_line
 
-	; Testing in prod, ignore.
-	;mov si, cxtitle
-	;mov bx, 20h ; 1919-10 (for reg+val), dec width times id of reg, where ax=1, bx=2...
-	;call dump_cx
+	mov si, cxtitle
+	mov bx, 20h ; 1919-10 (for reg+val), dec width times id of reg, where ax=1, bx=2...
+	
+	mov cx, 0fe12h
+	call dump_cx
 
 	; Wait
 	push cx
@@ -60,7 +61,7 @@ jmp main
 
 
 ;	SI (Zero terminated string)
-;	BX (Offset from top left, gets set to offset of the last char)
+;	BX (Offset from top left, gets set to offset after the last char)
 ;	AH (BG|FG)
 ; The offset shouldn't be a power of two, it is accounted for :)
 write_line:
@@ -98,21 +99,76 @@ dump_cx:
 	push cx
 	push si
 	push es
-
-	call set_es_to_vidmem
-
+	
 	mov ah, 07h
 	call write_line
 
+	; Show cx contents
 	mov ah, 1ch
-	mov al, 40h
+
+	; higher nibble of ch
+
+	push cx
+	and ch, 0xf0 ; wipe cl
+	shr ch, 4 ; cl = 0000xxxx
+	; TODO: Write this as a subroutine v
+	call nibble2asciihex
+
+	mov al, ch
 	call write_char
+	pop cx
+	; TODO: Write this as a subroutine ^
+
+	; lower nibble of ch
+
+	push cx
+	and ch, 0x0f
+	call nibble2asciihex
+
+	mov al, ch
+	call write_char
+	pop cx
+
+	; higher nibble of cl
+	push cx
+	and cl, 0xf0
+	shr cl, 4
+	xchg ch, cl
+	call nibble2asciihex
+	
+	mov al, ch
+	call write_char
+	pop cx
+
+	; lower nibble of cl
+	push cx
+	and cl, 0x0f
+	xchg ch, cl
+	call nibble2asciihex
+	
+	mov al, ch
+	call write_char
+	pop cx
+
 
 	pop es
 	pop si
 	pop cx
 	pop bx
 	pop ax
+ret
+
+
+;	CHlower (Hex nibble to attempt to turn into ascii)
+;	CHhigher (Must be zero'd out)
+;	CH (Gets the ascii value)
+; ex: 0x00f[4] -> 0x0034
+nibble2asciihex:
+	add ch, 30h
+	cmp ch, 3ah
+	jl .done
+	add ch, 07h
+	.done:
 ret
 
 
@@ -147,17 +203,16 @@ ret
 ;	AL (Gets set with ASCII character)
 ; Non-blocking, overwrites AX, sets ZF
 get_key:
-	mov ah, 01h
+	mov ah, 01h ; Get key, non-blocking
 	int 16h
 ret
 
 
 ;	AX ( [(BG|FG)] [Char] )
 ; Where ( [AH] [AL] )
-;	BX (Offset from top left)
+;	BX (Offset from top left, gets set to offset after the last char)
 ; The offset shouldn't be a power of two, it is accounted for :)
 write_char:
-	push bx
 	push es
 	call set_es_to_vidmem
 
@@ -165,7 +220,8 @@ write_char:
 
 	mov [es:bx], ax
 	pop es
-	pop bx
+	add bx, 2
+	shr bx, 1
 ret
 
 
