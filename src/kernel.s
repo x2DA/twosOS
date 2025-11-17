@@ -58,7 +58,7 @@ main:
 	mov cx, 0h
 	mov dx, 0h
 
-	call get_key
+	;call get_key
 	call dump_regs
 
 	; Wait
@@ -126,7 +126,7 @@ dump_regs:
 				; and that we're splitting newlines every 2
 	
 	mov si, cxtitle
-	pop cx ; bx
+	pop cx ; cx
 	call dump_cx
 	inc bx
 	
@@ -259,7 +259,6 @@ fill_screen:
 ret
 
 
-; FIXME: Doesn't work, reads nothing
 ;	ZF (Gets set if keystroke)
 ;	AH (Gets set with BIOS scan code)
 ;	AL (Gets set with ASCII character)
