@@ -98,9 +98,17 @@ xy2dto1d:
 	pop ax
 ret
 
+;messes ax and cx
 handle_user_input:
 	xor ah, ah
 	int 16h ; Read key into AL
+
+	cmp al, '`'
+	je .togglemode
+
+	mov ah, [cursor+3]
+	cmp ah, 1h
+	je .writemode
 
 	cmp al, 'h'
 	je .left
@@ -110,13 +118,24 @@ handle_user_input:
 	je .up
 	cmp al, 'l'
 	je .right
-	cmp al, ' '
-	je .togglemode
 	jmp .keyhandled
 
 	.loadcursor:
 		mov ax, [cursor]
 	ret
+
+	.writemode:
+		xchg bx, cx
+		mov bx, [bufferwritten]
+		cmp bx, 10h
+		jle .inbuffer
+			mov bx, 2
+		.inbuffer:
+		mov [savebuffer+bx], al
+		add bx, 1
+		mov [bufferwritten], bx
+		xchg bx, cx
+	jmp .keyhandled
 
 
 	.left:
@@ -130,7 +149,7 @@ handle_user_input:
 	.up:
 		call .loadcursor
 		add al, 0ffh
-	jmp .movkeyhandled
+jmp .movkeyhandled
 	.right:
 		call .loadcursor
 		add ah, 01h
@@ -140,6 +159,9 @@ handle_user_input:
 		mov ax, [cursor+2] ; toggle: ah mode, al color
 		xor ax, 0117h
 		mov [cursor+2], ax
+
+		call .loadcursor
+		mov [savebuffer], ax
 	jmp .keyhandled
 
 	.movkeyhandled:
@@ -205,7 +227,7 @@ ret
 ; IN [DHl]: Hex nibble to convert to ASCII.
 ; IN [DHh]: Zero
 ; OUT[DH]: ASCII output
-nibble2asciihexval:
+nibble2asciihexbyte:
 	add dh, 30h
 	cmp dh, 3ah
 	jl .done
@@ -213,7 +235,10 @@ nibble2asciihexval:
 	.done:
 ret
 
+
 ; TODO: Write inverse for the above
+; What is sub dh, 30h (DHh = 0, DH = ascii 0-F)
+
 
 
 ; IN [BX]: Offset from top left.
@@ -223,7 +248,7 @@ dump_dx:
 	jmp .start
 
 	.dump_nibble:
-		call nibble2asciihexval
+		call nibble2asciihexbyte
 
 		mov al, dh
 		call write_char
@@ -260,12 +285,12 @@ dump_dx:
 ret
 
 
-saveBufferSize db 50h ; CurrentWritten, MaxSize
 savebuffer:
 	; XYppppSppppSrrrrZ (17 bytes - 11h)
 	; position, param, sign, param, sign, result, zero terminator
 	times 11h db 2eh
-savebufferEnd:
+bufferend db 00h
+bufferwritten db 02h
 
 times 510 - ($-$$) db 0 ; Pad rest of sector
 dw 0xaa55
