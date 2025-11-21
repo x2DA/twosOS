@@ -1,14 +1,16 @@
 org 0x7c00
 bits 16
+; HJKL - Move
+; ` - Switch between normal and insert
 
 ; ----
 ; CONSTANTS
 ; ----
 
 VGATmem equ 0xb800 ; VGA Text Mode Buffer Start
-scrdim equ 4000d ; (24*80)*2(bytes)
-scrwidth equ 80d
-bgclear equ 8f20h
+screen_buffer_size equ 4000d ; (25*80)*2(bytes)
+screen_width equ 80d
+background_color equ 8f20h
 
 ; ----
 ; SETUP
@@ -30,12 +32,12 @@ mov sp, 0x7c00
 main:
 	; ---- Clear Screen ----
 	mov bx, 0h
-	mov ax, bgclear
-	.loop:
+	mov ax, background_color
+	.cls_loop:
 		mov [es:bx], ax
 		add bx, 2
-	cmp bx, scrdim
-	jl .loop
+	cmp bx, screen_buffer_size
+	jl .cls_loop
 	; ---- Clear Screen ----
 
 
@@ -51,8 +53,8 @@ main:
 
 
 	; ---- Draw Buffer ----
-	mov si, savebuffer+2
-	mov bx, [savebuffer]
+	mov si, calcBuffer+2
+	mov bx, [calcBuffer]
 	call xy2dto1d
 	call write_line
 	; ---- Draw Buffer ----
@@ -64,7 +66,7 @@ main:
 	mov ax, dx
 
 	mov bx, 6h
-	mov cl, [savebuffer+bx] ; Sign
+	mov cl, [calcBuffer+bx] ; Sign
 
 	push cx
 	mov bx, 5h ; Second 4 digit hex (+1 for sign)
@@ -109,6 +111,9 @@ main:
 	pop dx
 	inc bx
 	call dump_dx
+	mov bx, 80d
+	mov si, regnames
+	call write_line
 	; ---- Eval & Draw Buffer Result ----
 
 	call handle_user_input
@@ -129,7 +134,7 @@ xy2dto1d:
 	xor ax, ax
 	
 	mov al, bl
-	mov bl, scrwidth
+	mov bl, screen_width
 	mul bl ; AX = y*width
 
 	xor bl, bl
@@ -140,7 +145,7 @@ xy2dto1d:
 	pop ax
 ret
 
-;messes ax and bx
+; Messes AX and BX
 handle_user_input:
 	xor ah, ah
 	int 16h ; Read key into AL
@@ -170,18 +175,18 @@ handle_user_input:
 
 		call .loadcursor
 		inc ah
-		mov [savebuffer], ax
+		mov [calcBuffer], ax
 	jmp .key_handled
 
 	.key_writemode:
-		mov bx, [bufferwritten]
+		mov bx, [calcBufferWritten]
 		cmp bx, 0ah ; buffersize+1
 		jle .inbuffer
 			mov bx, 2 ; We're out of the buffer, re-set
 		.inbuffer:
-		mov [savebuffer+bx], al
+		mov [calcBuffer+bx], al
 		add bx, 1
-		mov [bufferwritten], bx
+		mov [calcBufferWritten], bx
 	jmp .key_handled
 
 
@@ -247,7 +252,9 @@ nibble2asciihexbyte:
 	.done:
 ret
 
-; Inverse of the above, OUT's become IN's and vice versa
+; IN [DH]: ASCII input.
+; OUT[DHh]: Zero
+; OUT[DHl]: Converted hex nibble from ASCII.
 asciihexbyte2nibble:
 	sub dh, 30h
 	cmp dh, 0fh
@@ -303,19 +310,16 @@ dump_dx:
 ret
 
 
-
-; ou [DHl]: Hex nibble to convert to ASCII.
-; ou [DHh]: Zero
-; in [DH]: ASCII output
-
-; in, bx, offset from base of first buffer
+; IN [BX]: Offset from the base of buffer.
+; OUT[DX]: Hex word (translated from ASCII) starting at offset.
+; Overwrites cx
 dump_to_dx:
 	mov cx, 0h
 	add bx, 2h
 	jmp .start
 
 	.dump_ascii:
-		mov dh, [savebuffer+bx]
+		mov dh, [calcBuffer+bx]
 		call asciihexbyte2nibble
 		inc bx
 	ret
@@ -345,16 +349,17 @@ ret
 ; ----
 ; VARIABLES
 ; ----
+regnames db "AX:DX",0
 
 cursor db 00h, 09h, 70h, 00h ; Y,X, Color, Mode,Modifier
 ; Modes: 0 Normal, 1 Write
 
-savebuffer:
+calcBuffer:
 	db 00h
 	db 0ah
 	times 09h db 2eh
 	db 00h
-	bufferwritten db 02h
+	calcBufferWritten db 02h
 
 times 510 - ($-$$) db 0 ; Pad rest of sector
 dw 0xaa55
