@@ -1,15 +1,14 @@
-# bootloader OS
+# bootloader "OS" space-tuned SDK
 
-# How to build
-## Dependencies
-`nasm, qemu` (Though, any other assembler and virtualizer with BIOS support should work, but you'll have to tweak the build script)
+## Usage:
+Cursor: h, j, k, l
+Cursor highlight: v (toggle, highlights from position @ the time of toggle to cursor position)
 
-## Compiling
-Boils down to assembling the bootloader into a flat-form binary. With nasm this becomes:
+## Build:
 ```
-nasm "bootloader.s" -f bin -o "bOS.img"
+nasm "bootloader.s" -f bin -o "NAME.img"
 ```
-## Running
+## Run:
 ```
-qemu-system-i386 -drive file=bOS.img, format=raw
+qemu-system-i386 -drive file=NAME.img, format=raw
 ```
