@@ -9,30 +9,27 @@ VGA_text_mode_buffer_start equ 0xb800 ; VGA Text Mode Buffer Start
 screen_buffer_size equ 4000d ; (25*80)*2(bytes)
 screen_width equ 80d
 
-data_size equ 20d
+data_size equ 16d
 
 background_color equ 0420h
-cursor_color equ 172bh
 highlight_color equ 8a20h
 
 ; ----
 ; SETUP
 ; ----
 
-mov dx, VGA_text_mode_buffer_start
-mov es, dx ; Do NOT change ES
+mov bx, VGA_text_mode_buffer_start
+mov es, bx ; Do NOT change ES
 
-xor dx, dx
 
-mov ds, dx
-mov ss, dx
 mov sp, 0x7c00
 
 
 ; ---- MAIN ----
 main:
 	; ---- Clear Screen ----
-	mov bx, 0h
+	xor bx, bx
+
 	.cls_loop:
 		mov [es:bx], word background_color
 		add bx, 2
@@ -53,13 +50,15 @@ main:
 	.hl_dont:
 
 	mov bx, [cursor]
-	mov [es:bx], word cursor_color
+	mov [es:bx], ax;word cursor_color
 	; ---- Do Cursor & Highlights ----
 	xor ax, ax
 	xor bx, bx
-	xor cx, cx
 	xor dx, dx
-
+	; Pray these get initialized to 0.
+	;; Sux 4 Speed, Gr8 4 Space
+	;mov ds, bx
+	;mov ss, ax
 
 
 
@@ -73,16 +72,10 @@ main:
 	jmp prog_start
 
 	; -- prog_vars --
-	ded dw 0deadh
+
 
 	prog_start:
 
-	mov ax, [ded]
-	mov [data+1], ah
-	push ax
-	and ah, 0xf0
-	mov [data], ah
-	pop ax
 
 	; ---- Running program ----
 
@@ -97,7 +90,7 @@ main:
 
 	; ---- Dump Memory 2 Screen ----
 	push bx
-	mov bx, 0h
+	xor bx, bx
 
 	call dump_dx ; dx
 	mov dx, cx
@@ -126,8 +119,6 @@ main:
 	int 16h ; Read key into AL
 
 	mov bx, [cursor] ; Cursor Pos
-	mov cx, [cursor+2] ; Highlight Pos
-	mov dl, [cursor+4] ; Visual Toggle
 
 	cmp al, 'h'
 	je .key_left
@@ -158,16 +149,16 @@ main:
 	jmp .keys_done
 
 	.key_visual:
-	xor dl, 1h
+	mov al, [cursor+4] ; Visual toggle
+	xor al, 1h
 
-	cmp dl, 1h
+	cmp al, 1h
+	mov [cursor+4], al ; Visual toggle
 	jne .keys_done
-	mov cx, bx ; Set highlight start at cursor
+	mov [cursor+2], bx ; Set highlight start to cursor pos
 
 	.keys_done:
 	mov [cursor], bx ; Cursor Pos
-	mov [cursor+2], cx ; Highlight Pos
-	mov [cursor+4], dl ; Visual Toggle
 	; ---- Handle Input -----
 
 jmp main
@@ -182,9 +173,14 @@ jmp main
 ; IN: BX - Position on screen; Char + attr. size not accounted for
 ; OUT: BX - Initial position + 160
 dump_dx:
-	jmp .justdoit
+	call onedigit
+	call onedigit
+	call onedigit
+	call onedigit
+	add bx, 152d
+ret
 
-	.onedigit:
+onedigit:
 	push dx
 
 	and dh, 0xf0
@@ -201,17 +197,8 @@ dump_dx:
 	pop dx
 	rol dx, 4
 	add bx, 2
-	;inc bx
-	ret
-
-	.justdoit:
-	call .onedigit
-	call .onedigit
-	call .onedigit
-	call .onedigit
-
-	add bx, 152d
 ret
+
 
 
 ; ----
