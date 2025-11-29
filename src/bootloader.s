@@ -78,8 +78,11 @@ main:
 	prog_start:
 
 	mov ax, [ded]
-	mov [data], ax
-	mov [data+2], al
+	mov [data+1], ah
+	push ax
+	and ah, 0xf0
+	mov [data], ah
+	pop ax
 
 	; ---- Running program ----
 
@@ -174,11 +177,6 @@ jmp main
 ; ----
 ; FUNCTIONS
 ; ----
-
-
-; IN: BX - Position on screen; Char + attr. size not accounted for
-dump_data:
-ret
 
 
 ; IN: BX - Position on screen; Char + attr. size not accounted for
