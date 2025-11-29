@@ -1,15 +1,18 @@
-# bootloader OS
+# Space-tuned x86 debugger & demo tool (in bootloader)
 
-# How to build
-## Dependencies
-`nasm, qemu` (Though, any other assembler and virtualizer with BIOS support should work, but you'll have to tweak the build script)
+## Usage:
+### Highlighting:
+Cursor: h, j, k, l  
+Cursor highlight: v (toggle, highlights from position @ the time of toggle to cursor position)
+### Code:
+Ideally define variables under `; -- prog_vars --` and instructions under `prog_start`. There is a referenceable `data` label (which gets dumped to screen).
+About 256 free bytes.
 
-## Compiling
-Boils down to assembling the bootloader into a flat-form binary. With nasm this becomes:
+## Build:
 ```
-nasm "bootloader.s" -f bin -o "bOS.img"
+nasm "bootloader.s" -f bin -o "NAME.img"
 ```
-## Running
+## Run:
 ```
-qemu-system-i386 -drive file=bOS.img, format=raw
+qemu-system-i386 -drive file=NAME.img, format=raw
 ```
